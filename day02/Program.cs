@@ -1,58 +1,34 @@
-﻿
-var unsafeReportsCount = 0;
-var lines = File.ReadAllLines("input.txt");
-var withProblemDampener = true;
+﻿var lines = File.ReadAllLines("input.txt").Select(x => x.Split(' ').Select(x => int.Parse(x)));
 
-foreach (var line in lines)
+var safeReportsCount = lines    
+    .Select(x => IsSafe(x, false))
+    .Count(x => x == true);
+
+var safeReportsCountWithProblemDampener = lines    
+    .Select(x => IsSafe(x, true))
+    .Count(x => x == true);
+
+bool IsSafe(IEnumerable<int> levels, bool withProblemDampener)
 {
-    var levels = line.Split(' ').Select(x => int.Parse(x)).ToList();
+    var tmp = levels
+        .Zip(levels.Skip(1), (a, b) => a - b > 0 && a - b <= 3 ? 1 : a - b < 0 && a - b >= -3 ? -1 : 0);
+    
+    var isSafe = tmp.All(x => x != 0) && tmp.Distinct().Count() == 1;
 
-    if (IsUnsafe(levels, withProblemDampener))
+    if (!isSafe && withProblemDampener)
     {
-        unsafeReportsCount++;
-    }
-}
-
-bool IsUnsafe(List<int> levels, bool withProblemDampener)
-{
-    var isUnsafe = false;
-    int? delta = null;
-
-    for (var i = 1; i < levels.Count; i++)
-    {
-        if (delta is null)
-        {
-            delta = levels[i - 1] - levels[i];
-            if (delta == 0 || (delta < -3) || (delta > 3))
-            {
-                isUnsafe = true;
-                break;
-            }
-        }
-
-        var levelsDelta = levels[i - 1] - levels[i];
-
-        if (delta < 0 && (levelsDelta < -3 || levelsDelta >= 0)
-            || delta > 0 && (levelsDelta <= 0 || levelsDelta > 3))
-        {
-            isUnsafe = true;
-            break;
-        }
-    }
-
-    if (withProblemDampener && isUnsafe)
-    {
-        for (var index = 0; index < levels.Count; index++)
-        {
-            isUnsafe = IsUnsafe(levels.Where((v, i) => i != index).ToList(), false);
-            if (!isUnsafe)
-            {
+        for (var index = 0; index < levels.Count(); index++)
+        {            
+            isSafe = IsSafe(levels.Where((v, i) => i != index), false);
+            if (isSafe)
+            {     
                 break;
             }
         }
     }
 
-    return isUnsafe;
+    return isSafe;
 }
 
-Console.WriteLine($"safeReportsCount {lines.Length - unsafeReportsCount}");
+Console.WriteLine($"safeReportsCount {safeReportsCount}");
+Console.WriteLine($"safeReportsCountWithProblemDampener {safeReportsCountWithProblemDampener}");
