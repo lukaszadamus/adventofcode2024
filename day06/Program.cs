@@ -9,21 +9,22 @@
         return positions;
     });
 
-var currentPosition = map.Where(x => x.Value == '^').Select(x => x.Key).First();
-var move = new Position(0, -1);
+var startPosition = map.Where(x => x.Value == '^').Select(x => x.Key).First();
+var firstMove = new Position(0, -1);
 
-var part1 = Part1(currentPosition, move, map, []);
-Console.WriteLine($"Part1: {part1.Distinct().Count()}");
+var part1 = Part1(startPosition, firstMove, map, []);
+Console.WriteLine($"Part1: {part1.Select(x => x.Position).Distinct().Count()}");
 
 var part2 = new List<Position>();
 for (var i = 1; i < part1.Count; i++)
 {
-    var position = part1[i];
+    var position = part1[i].Position;
+
     if (map[position] == '.' && !part2.Contains(position))
     {
         map[position] = '#';
 
-        if (Part2(currentPosition, move, map, []))
+        if (Part2(startPosition, firstMove, map, []))
         {
             part2.Add(position);
         }
@@ -33,13 +34,13 @@ for (var i = 1; i < part1.Count; i++)
 }
 Console.WriteLine($"Part2: {part2.Distinct().Count()}");
 
-static List<Position> Part1(Position currentPosition, Position move, Dictionary<Position, char> map, List<Position> route)
+static List<Complex> Part1(Position currentPosition, Position move, Dictionary<Position, char> map, List<Complex> route)
 {
     var next = new Position(currentPosition.X + move.X, currentPosition.Y + move.Y);
 
     if (!map.TryGetValue(next, out var c))
     {
-        route.Add(currentPosition);
+        route.Add(new(currentPosition, move));
         return route;
     }
 
@@ -50,7 +51,7 @@ static List<Position> Part1(Position currentPosition, Position move, Dictionary<
     }
     else
     {
-        route.Add(currentPosition);
+        route.Add(new(currentPosition, move));
         return Part1(next, move, map, route);
     }
 }
