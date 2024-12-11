@@ -1,6 +1,6 @@
 ﻿var map = ParseInput();
 
-var result = map
+var hikingTrails = map
     .Where(x => x.Value == 0)
     .Aggregate(new List<HikingTrail>(), (acc, start) =>
     {
@@ -10,10 +10,8 @@ var result = map
         return acc;
     });
 
-var count = result.GroupBy(x => x.Positions.First()).Select(g => g.Count()).Sum();
-
-Console.WriteLine($"Part1: {Score1(result)}");
-Console.WriteLine($"Part2: {Score2(result)}");
+Console.WriteLine($"Part1: {Score1(hikingTrails)}");
+Console.WriteLine($"Part2: {Score2(hikingTrails)}");
 
 void Discover(Dictionary<Position, int> map, Position currentPosition, Stack<Position> currentHikingTrail, List<HikingTrail> hikingTrails)
 {
@@ -101,10 +99,16 @@ Position? MoveRight(Dictionary<Position, int> map, Position position, int height
 }
 
 int Score1(List<HikingTrail> hikingTrails)
-    => hikingTrails.GroupBy(x => x.Head).Select(g => new { g.Key, count = g.Select(x => x.End).Distinct().Count() }).Sum(x => x.count);
+    => hikingTrails
+        .GroupBy(x => x.Head)
+        .Select(g => new { g.Key, count = g.Select(x => x.End).Distinct().Count() })
+        .Sum(x => x.count);
 
 int Score2(List<HikingTrail> hikingTrails)
-    => hikingTrails.GroupBy(x => x.Positions.First()).Select(g => g.Count()).Sum();
+    => hikingTrails
+        .GroupBy(x => x.Positions.First())
+        .Select(g => g.Count())
+        .Sum();
 
 Dictionary<Position, int> ParseInput()
     => File.ReadAllLines("input.txt")
