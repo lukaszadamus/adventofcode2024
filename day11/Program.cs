@@ -1,40 +1,51 @@
-﻿var input = File.ReadAllText("input.txt").Split(" ").Select(x => ulong.Parse(x)).ToList();
+﻿using System.Collections.Concurrent;
 
-Console.WriteLine($"Part1: {Loop(input, 25)}");
-Console.WriteLine($"Part2: {Loop(input, 75)}");
+var input = File.ReadAllText("input.txt").Split(" ").Select(x => ulong.Parse(x)).ToList();
 
-int Loop(List<ulong> stones, int count)
+Console.WriteLine($"Part1: {ParallelLoop(input, 25)}");
+Console.WriteLine($"Part2: {ParallelLoop(input, 75)}");
+
+int ParallelLoop(List<ulong> stones, int count)
 {
-    for(int i=0; i<count; i++)
-    {
-        Blink(input);
-        //Console.WriteLine(string.Join(" ", input));
-    }
-    return stones.Count;
+    var numberOfStones = new ConcurrentBag<int>();
+
+    var result = Parallel.ForEach(stones, stone => {
+        int stonesCount = 1;
+        Blink(stone, 0, count, ref stonesCount);
+        numberOfStones.Add(stonesCount);
+    });
+
+    return numberOfStones.Sum();
 }
 
-void Blink(List<ulong> stones)
-{    
-    int? digitsNo = 0;
-    for (int i = stones.Count - 1; i >= 0; i--)
-    {        
-        digitsNo = Splittable(stones[i]);
-        
-        if(stones[i] == 0)
+void Blink(ulong number, int deep, int maxDeep, ref int stones)
+{
+    if(deep == maxDeep)
+    {
+        return;
+    }
+
+    if(number == 0)
+    {
+        number = 1;
+        Blink(number, deep + 1, maxDeep, ref stones);
+    }
+    else
+    {
+        var digitsNo = Splittable(number);
+        if(digitsNo.HasValue)    
         {
-            stones[i] = 1;
-        }
-        else if(digitsNo.HasValue)
-        {
-            (ulong left, ulong right) = Split(stones[i], digitsNo.Value);
-            stones[i] = right;
-            stones.Insert(i, left);
+            (var left, var right) = Split(number, digitsNo.Value);
+            Interlocked.Increment(ref stones);
+            Blink(left, deep + 1, maxDeep, ref stones);
+            Blink(right, deep + 1, maxDeep, ref stones);
         }
         else
         {
-            stones[i] *= 2024;
+            number *= 2024;
+            Blink(number, deep + 1, maxDeep, ref stones);
         }
-    }    
+    }
 }
 
 int? Splittable(ulong number)
@@ -44,9 +55,9 @@ int? Splittable(ulong number)
 }
 
 (ulong left, ulong right) Split(ulong number, int digitsNo)
-{    
+{
     var pow = (ulong)Math.Pow(10, digitsNo);
-    var toSplit = (decimal)number / pow;  
+    var toSplit = (decimal)number / pow;
     var left = (ulong)Math.Truncate(toSplit);
     var right = (ulong)((toSplit - left) * pow);
     return (left, right);
