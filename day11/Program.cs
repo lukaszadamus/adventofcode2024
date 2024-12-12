@@ -2,63 +2,104 @@
 
 var input = File.ReadAllText("input.txt").Split(" ").Select(x => ulong.Parse(x)).ToList();
 
-Console.WriteLine($"Part1: {ParallelLoop(input, 25)}");
-Console.WriteLine($"Part2: {ParallelLoop(input, 75)}");
+Console.WriteLine($"Part1: {ParallelCount(input, 25)}");
+Console.WriteLine($"Part2: {ParallelCount(input, 75)}");
 
-int ParallelLoop(List<ulong> stones, int count)
+long ParallelCount(List<ulong> stones, int count)
 {
-    var numberOfStones = new ConcurrentBag<int>();
+    var numberOfStones = new ConcurrentBag<long>();
+    var countCache = new ConcurrentDictionary<CacheKey, long>();
+    var splitCache = new ConcurrentDictionary<ulong, (ulong left, ulong? right)>();
 
-    var result = Parallel.ForEach(stones, stone => {
-        int stonesCount = 1;
-        Blink(stone, 0, count, ref stonesCount);
-        numberOfStones.Add(stonesCount);
-    });
+    var result = Parallel.ForEach(stones, stone => numberOfStones.Add(CountStones(stone, 0, count, countCache, splitCache)));
 
     return numberOfStones.Sum();
 }
 
-void Blink(ulong number, int deep, int maxDeep, ref int stones)
+long CountStones(ulong number, int deep, int maxDeep, ConcurrentDictionary<CacheKey, long> countCache, ConcurrentDictionary<ulong, (ulong left, ulong? right)> splitCache)
 {
-    if(deep == maxDeep)
+    if (deep == maxDeep)
     {
-        return;
+        return 1;
     }
 
-    if(number == 0)
+    (ulong left, ulong? right) = Blink(number, splitCache);
+
+    var counter = 0L;
+
+    Count(left);
+
+    if (right.HasValue)
     {
-        number = 1;
-        Blink(number, deep + 1, maxDeep, ref stones);
+        Count(right.Value);
     }
-    else
+
+    return counter;
+
+    void Count(ulong next)
     {
-        var digitsNo = Splittable(number);
-        if(digitsNo.HasValue)    
+        var cacheKey = new CacheKey(next, deep + 1);
+
+        if (countCache.TryGetValue(cacheKey, out var cached))
         {
-            (var left, var right) = Split(number, digitsNo.Value);
-            Interlocked.Increment(ref stones);
-            Blink(left, deep + 1, maxDeep, ref stones);
-            Blink(right, deep + 1, maxDeep, ref stones);
+            counter += cached;
         }
         else
         {
-            number *= 2024;
-            Blink(number, deep + 1, maxDeep, ref stones);
+            var count = CountStones(next, deep + 1, maxDeep, countCache, splitCache);
+            countCache[cacheKey] = count;
+            counter += count;
         }
     }
 }
 
-int? Splittable(ulong number)
+
+(ulong left, ulong? right) Blink(ulong number, ConcurrentDictionary<ulong, (ulong left, ulong? right)> splitCache)
 {
-    var digitsNo = (int)Math.Floor(Math.Log10(number) + 1);
-    return number != 0 && digitsNo % 2 == 0 ? digitsNo / 2 : null;
+    var left = number;
+    ulong? right = null;
+
+    if (left == 0)
+    {
+        left = 1;
+    }
+    else
+    {
+        (left, right) = Split(number, splitCache);
+
+        if (right == null)
+        {
+            left *= 2024;
+        }
+    }
+    return (left, right);
 }
 
-(ulong left, ulong right) Split(ulong number, int digitsNo)
+(ulong left, ulong? right) Split(ulong number, ConcurrentDictionary<ulong, (ulong left, ulong? right)> splitCache)
 {
-    var pow = (ulong)Math.Pow(10, digitsNo);
+    if (splitCache.TryGetValue(number, out var splitResult))
+    {
+        return (splitResult.left, splitResult.right);
+    }
+
+    var length = (int)Math.Floor(Math.Log10(number) + 1);
+    int? digitsNo = number != 0 && length % 2 == 0 ? length / 2 : null;
+
+    if (digitsNo == null)
+    {
+        splitCache[number] = (number, null);
+        return (number, null);
+    }
+
+    var pow = (ulong)Math.Pow(10, digitsNo.Value);
     var toSplit = (decimal)number / pow;
     var left = (ulong)Math.Truncate(toSplit);
     var right = (ulong)((toSplit - left) * pow);
+
+    splitCache[number] = (left, right);
+
     return (left, right);
+
 }
+
+record CacheKey(ulong Number, int Deep);
